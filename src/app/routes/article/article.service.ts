@@ -286,16 +286,63 @@ const disconnectArticlesTags = async (slug: string) => {
   });
 };
 
-// Lines of code: 95
-// Cyclomatic complexity: 12
-// Cognitive complexity: 13
-export const updateArticle = async (article: any, slug: string, id: number) => {
-  let newSlug = null;
+const resolveUpdatedSlug = async (
+  currentSlug: string,
+  newTitle: string | undefined,
+  authorId: number
+): Promise<string | null> => {
+  if (!newTitle) {
+    return null;
+  }
 
-  const existingArticle = await await prisma.article.findFirst({
-    where: {
-      slug,
+  const generatedSlug = `${slugify(newTitle)}-${authorId}`;
+  if (generatedSlug === currentSlug) {
+    return null;
+  }
+
+  const existingArticleWithSlug = await prisma.article.findFirst({
+    where: { slug: generatedSlug },
+    select: { slug: true },
+  });
+
+  if (existingArticleWithSlug) {
+    throw new HttpException(422, { errors: { title: ['must be unique'] } });
+  }
+
+  return generatedSlug;
+};
+
+const buildTagConnectOrCreate = (tagList?: string[]) => {
+  if (!Array.isArray(tagList) || tagList.length === 0) {
+    return [];
+  }
+
+  return tagList.map((tag: string) => ({
+    create: { name: tag },
+    where: { name: tag },
+  }));
+};
+
+const buildArticleUpdatePayload = (
+  article: any,
+  newSlug: string | null,
+  connectOrCreateTags: ReturnType<typeof buildTagConnectOrCreate>
+) => {
+  return {
+    ...(article.title ? { title: article.title } : {}),
+    ...(article.body ? { body: article.body } : {}),
+    ...(article.description ? { description: article.description } : {}),
+    ...(newSlug ? { slug: newSlug } : {}),
+    updatedAt: new Date(),
+    tagList: {
+      connectOrCreate: connectOrCreateTags,
     },
+  };
+};
+
+export const updateArticle = async (article: any, slug: string, id: number) => {
+  const existingArticle = await prisma.article.findFirst({
+    where: { slug },
     select: {
       author: {
         select: {
@@ -316,49 +363,14 @@ export const updateArticle = async (article: any, slug: string, id: number) => {
     });
   }
 
-  if (article.title) {
-    newSlug = `${slugify(article.title)}-${id}`;
-
-    if (newSlug !== slug) {
-      const existingTitle = await prisma.article.findFirst({
-        where: {
-          slug: newSlug,
-        },
-        select: {
-          slug: true,
-        },
-      });
-
-      if (existingTitle) {
-        throw new HttpException(422, { errors: { title: ['must be unique'] } });
-      }
-    }
-  }
-
-  const tagList =
-    Array.isArray(article.tagList) && article.tagList?.length
-      ? article.tagList.map((tag: string) => ({
-          create: { name: tag },
-          where: { name: tag },
-        }))
-      : [];
+  const newSlug = await resolveUpdatedSlug(slug, article.title, id);
+  const tagList = buildTagConnectOrCreate(article.tagList);
 
   await disconnectArticlesTags(slug);
 
   const updatedArticle = await prisma.article.update({
-    where: {
-      slug,
-    },
-    data: {
-      ...(article.title ? { title: article.title } : {}),
-      ...(article.body ? { body: article.body } : {}),
-      ...(article.description ? { description: article.description } : {}),
-      ...(newSlug ? { slug: newSlug } : {}),
-      updatedAt: new Date(),
-      tagList: {
-        connectOrCreate: tagList,
-      },
-    },
+    where: { slug },
+    data: buildArticleUpdatePayload(article, newSlug, tagList),
     include: {
       tagList: {
         select: {
@@ -383,37 +395,6 @@ export const updateArticle = async (article: any, slug: string, id: number) => {
   });
 
   return articleMapper(updatedArticle, id);
-};
-
-export const deleteArticle = async (slug: string, id: number) => {
-  const existingArticle = await await prisma.article.findFirst({
-    where: {
-      slug,
-    },
-    select: {
-      author: {
-        select: {
-          id: true,
-          username: true,
-        },
-      },
-    },
-  });
-
-  if (!existingArticle) {
-    throw new HttpException(404, {});
-  }
-
-  if (existingArticle.author.id !== id) {
-    throw new HttpException(403, {
-      message: 'You are not authorized to delete this article',
-    });
-  }
-  await prisma.article.delete({
-    where: {
-      slug,
-    },
-  });
 };
 
 export const getCommentsByArticle = async (slug: string, id?: number) => {
