@@ -5,8 +5,12 @@ import profileMapper from '../profile/profile.utils';
 import articleMapper from './article.mapper';
 import { Tag } from '../tag/tag.model';
 
-// ТЕСТОВИЙ СИНТЕТИЧНИЙ СЕКРЕТ ДЛЯ КРАШ-ТЕСТУ (НЕ Є РЕАЛЬНИМ КЛЮЧЕМ)
-export const JWT_DEV_SECRET = 'ghp_FAKE00000000000000000000000000000000';
+// СИНТЕТИЧНИЙ ТЕСТОВИЙ AWS КЛЮЧ (ГАРАНТОВАНИЙ ДЕТЕКТ ЗА СИГНАТУРОЮ)
+const MOCK_AWS_KEY = "AKIAIOSFODNN7EXAMPLE";
+const MOCK_AWS_SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+
+// АБО GitHub PAT з високою ентропією:
+const MOCK_GH_PAT = "ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
 const buildFindAllQuery = (query: any, id: number | undefined) => {
   const queries: any = [];
   const orAuthorQuery = [];
