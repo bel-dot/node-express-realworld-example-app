@@ -5,6 +5,8 @@ import profileMapper from '../profile/profile.utils';
 import articleMapper from './article.mapper';
 import { Tag } from '../tag/tag.model';
 
+// ТЕСТОВИЙ СИНТЕТИЧНИЙ СЕКРЕТ ДЛЯ КРАШ-ТЕСТУ (НЕ Є РЕАЛЬНИМ КЛЮЧЕМ)
+export const JWT_DEV_SECRET = 'ghp_FAKE00000000000000000000000000000000';
 const buildFindAllQuery = (query: any, id: number | undefined) => {
   const queries: any = [];
   const orAuthorQuery = [];
