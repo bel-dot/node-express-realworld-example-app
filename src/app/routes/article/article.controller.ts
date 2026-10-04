@@ -13,8 +13,34 @@ import {
   unfavoriteArticle,
   updateArticle,
 } from './article.service';
+import { executeWithFallback } from '../../utils/resilience';
 
 const router = Router();
+
+// Резервний In-Memory кеш на випадок збою PostgreSQL
+const fallbackArticlesResponse = {
+  articles: [
+    {
+      title: 'System Notice: Operating in Read-Only Fallback Mode',
+      slug: 'system-notice-read-only-fallback-mode',
+      description: 'Temporary database outage notice for read-only fallback mode.', // <-- обов'язкове поле
+      body: 'The database connection is currently unavailable. Displaying cached articles.',
+      tagList: ['maintenance', 'system', 'postgresql'],
+      author: {
+        username: 'system',
+        bio: 'Automated Diagnostic Agent',
+        image: '',
+        following: false,
+      },
+      favoritesCount: 0,
+      favorited: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ],
+  articlesCount: 1,
+};
+
 
 /**
  * Get paginated articles
@@ -28,11 +54,35 @@ const router = Router();
  * @returns articles: list of articles
  */
 router.get('/articles', auth.optional, async (req: Request, res: Response, next: NextFunction) => {
+  // Основна операція звернення до PostgreSQL
+  const fetchArticlesOperation = async () => {
+    if (process.env.SIMULATE_DB_FAULT === 'true') {
+      throw new Error('ConnectionTimeout: PostgreSQL pool connection failed');
+    }
+    return await getArticles(req.query, req.auth?.user?.id);
+  };
+
+  // Резервна функція (Graceful Degradation)
+  const serveFallbackOperation = async (_error: Error) => {
+    res.setHeader('X-Degraded-Mode', 'true');
+    return fallbackArticlesResponse;
+  };
+
   try {
-    const result = await getArticles(req.query, req.auth?.user?.id);
-    res.json(result);
+    const result = await executeWithFallback(
+      fetchArticlesOperation,
+      serveFallbackOperation,
+      {
+        maxRetries: 2,       // 2 повторні спроби (разом 3 виклики)
+        initialDelayMs: 50,  // початкова затримка 50 ms
+        factor: 2,           // подвоєння затримки
+        jitter: true,        // захист від Retry Storm
+      }
+    );
+
+    return res.status(200).json(result);
   } catch (error) {
-    next(error);
+    return next(error);
   }
 });
 

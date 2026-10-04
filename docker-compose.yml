@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: realworld-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: conduit
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Інструмент для Fault Injection (симуляція затримок і packet loss до БД)
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    container_name: realworld-toxiproxy
+    ports:
+      - "8474:8474" # API керування збоями
+      - "5433:5433" # Проксі-порт до Postgres
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
