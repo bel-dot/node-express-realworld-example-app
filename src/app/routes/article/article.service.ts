@@ -5,12 +5,6 @@ import profileMapper from '../profile/profile.utils';
 import articleMapper from './article.mapper';
 import { Tag } from '../tag/tag.model';
 
-// СИНТЕТИЧНИЙ ТЕСТОВИЙ КЛЮЧ ДЛЯ КРАШ-ТЕСТУ (FAIL)
-const SYNTHETIC_PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEA0Y5sF6QZ1234567890abcdefghijklmnopqrstuvwxyzAB
-CDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzAB
-CDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzAB
------END RSA PRIVATE KEY-----`;
 const buildFindAllQuery = (query: any, id: number | undefined) => {
   const queries: any = [];
   const orAuthorQuery = [];
