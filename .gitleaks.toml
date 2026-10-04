@@ -1,0 +1,12 @@
+title = "RealWorld Security Secret Scanner Config"
+
+[[rules]]
+id = "synthetic-jwt-token"
+description = "Detected hardcoded JWT Secret or sensitive token"
+regex = '''(?i)(jwt_secret|api_key|synthetic_secret)\s*[:=]\s*['"][a-zA-Z0-9_\-]{16,}['"]'''
+secretGroup = 0
+keywords = [
+    "jwt_secret",
+    "api_key",
+    "synthetic_secret"
+]
