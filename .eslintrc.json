@@ -1,7 +1,11 @@
 {
   "root": true,
   "ignorePatterns": ["!**/*"],
-  "plugins": ["@nx"],
+  "plugins": ["@nx", "sonarjs"],
+  "rules": {
+    "sonarjs/cognitive-complexity": ["error", 15],
+    "complexity": ["warn", 10]
+  },
   "overrides": [
     {
       "files": ["*.ts", "*.tsx"],
