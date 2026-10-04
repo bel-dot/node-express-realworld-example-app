@@ -5,12 +5,12 @@ import profileMapper from '../profile/profile.utils';
 import articleMapper from './article.mapper';
 import { Tag } from '../tag/tag.model';
 
-// СИНТЕТИЧНИЙ ТЕСТОВИЙ AWS КЛЮЧ (ГАРАНТОВАНИЙ ДЕТЕКТ ЗА СИГНАТУРОЮ)
-const MOCK_AWS_KEY = "AKIAIOSFODNN7EXAMPLE";
-const MOCK_AWS_SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
-
-// АБО GitHub PAT з високою ентропією:
-const MOCK_GH_PAT = "ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789";
+// СИНТЕТИЧНИЙ ТЕСТОВИЙ КЛЮЧ ДЛЯ КРАШ-ТЕСТУ (FAIL)
+const SYNTHETIC_PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA0Y5sF6QZ1234567890abcdefghijklmnopqrstuvwxyzAB
+CDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzAB
+CDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyzAB
+-----END RSA PRIVATE KEY-----`;
 const buildFindAllQuery = (query: any, id: number | undefined) => {
   const queries: any = [];
   const orAuthorQuery = [];
