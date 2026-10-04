@@ -286,6 +286,9 @@ const disconnectArticlesTags = async (slug: string) => {
   });
 };
 
+// Lines of code: 95
+// Cyclomatic complexity: 12
+// Cognitive complexity: 13
 export const updateArticle = async (article: any, slug: string, id: number) => {
   let newSlug = null;
 
