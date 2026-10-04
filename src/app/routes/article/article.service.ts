@@ -397,6 +397,37 @@ export const updateArticle = async (article: any, slug: string, id: number) => {
   return articleMapper(updatedArticle, id);
 };
 
+export const deleteArticle = async (slug: string, id: number) => {
+  const existingArticle = await await prisma.article.findFirst({
+    where: {
+      slug,
+    },
+    select: {
+      author: {
+        select: {
+          id: true,
+          username: true,
+        },
+      },
+    },
+  });
+
+  if (!existingArticle) {
+    throw new HttpException(404, {});
+  }
+
+  if (existingArticle.author.id !== id) {
+    throw new HttpException(403, {
+      message: 'You are not authorized to delete this article',
+    });
+  }
+  await prisma.article.delete({
+    where: {
+      slug,
+    },
+  });
+};
+
 export const getCommentsByArticle = async (slug: string, id?: number) => {
   const queries = [];
 
