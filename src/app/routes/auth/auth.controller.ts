@@ -3,6 +3,7 @@ import auth from './auth';
 import { createUser, getCurrentUser, login, updateUser } from './auth.service';
 import { PrivacyLogger } from '../../utils/privacy-logger';
 import { PersonalDataService } from './personal-data.service';
+import { AnonymizationService } from './anonymization.service';
 
 const router = Router();
 
@@ -129,6 +130,45 @@ router.get(
       return res.status(200).json(exportDossier);
     } catch (error) {
       PrivacyLogger.error('Failure generating personal data export', error);
+      return next(error);
+    }
+  }
+);
+
+router.post(
+  '/users/:id/anonymize',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const targetUserId = Number.parseInt(req.params.id, 10);
+      const authenticatedUserId = (req as Request).auth?.user?.id;
+
+      // 1. Захист від IDOR: суб'єкт може ініціювати видалення лише свого профілю
+      if (authenticatedUserId !== targetUserId) {
+        PrivacyLogger.warn('Unauthorized erasure/anonymization attempt blocked', {
+          actorId: authenticatedUserId,
+          targetId: targetUserId,
+        });
+        return res.status(403).json({
+          errors: { message: 'Forbidden: You cannot anonymize another subject profile' },
+        });
+      }
+
+      // 2. Виконання транзакційного знеособлення
+      const result = await AnonymizationService.anonymizeUser(targetUserId);
+
+      // 3. Безпечний аудит-лог (без PII)
+      PrivacyLogger.info('Subject anonymization workflow completed', {
+        subjectId: targetUserId,
+        status: result.status,
+      });
+
+      return res.status(200).json({
+        message: 'Personal data has been irreversibly anonymized in accordance with GDPR Art. 17',
+        result,
+      });
+    } catch (error) {
+      PrivacyLogger.error('Failure during anonymization workflow', error);
       return next(error);
     }
   }
