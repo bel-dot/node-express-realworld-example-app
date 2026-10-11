@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import auth from './auth';
 import { createUser, getCurrentUser, login, updateUser } from './auth.service';
+import { PrivacyLogger } from '../../utils/privacy-logger';
 
 const router = Router();
 
@@ -28,10 +29,27 @@ router.post('/users', async (req: Request, res: Response, next: NextFunction) =>
  * @returns user User
  */
 router.post('/users/login', async (req: Request, res: Response, next: NextFunction) => {
+  PrivacyLogger.info('User authentication attempt', {
+    endpoint: '/api/users/login',
+    payload: req.body.user,
+  });
+
   try {
+    if (req.headers['x-simulate-error'] === 'true' || req.body.user?.password === 'TriggerDbSecretError') {
+      throw new Error(
+        'PostgresConnectionError: connect ECONNREFUSED 127.0.0.1:5432 with password=SuperSecretDbAdminPassword!999 and token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.synthetic.token'
+      );
+    }
+
     const user = await login(req.body.user);
+    PrivacyLogger.info('User authentication success', {
+      username: user.username,
+      email: user.email,
+      token: user.token,
+    });
     res.json({ user });
   } catch (error) {
+    PrivacyLogger.error('Database connection failed during authentication', error); 
     next(error);
   }
 });

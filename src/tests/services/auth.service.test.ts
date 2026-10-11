@@ -25,7 +25,6 @@ describe('AuthService', () => {
       };
 
       // When
-      // @ts-ignore
       prismaMock.user.create.mockResolvedValue(mockedResponse);
 
       // Then
