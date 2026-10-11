@@ -2,6 +2,7 @@ import { NextFunction, Request, Response, Router } from 'express';
 import auth from './auth';
 import { createUser, getCurrentUser, login, updateUser } from './auth.service';
 import { PrivacyLogger } from '../../utils/privacy-logger';
+import { PersonalDataService } from './personal-data.service';
 
 const router = Router();
 
@@ -84,5 +85,53 @@ router.put('/user', auth.required, async (req: Request, res: Response, next: Nex
     next(error);
   }
 });
+
+router.get(
+  '/users/:id/personal-data',
+  auth.required,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const targetUserId = parseInt(req.params.id, 10);
+      const authenticatedUserId = (req as Request).auth?.user?.id;
+
+      // 1. КОНТРОЛЬ ДОСТУПУ (Захист від IDOR):
+      // Заборонено запитувати дані іншого суб'єкта
+      if (authenticatedUserId !== targetUserId) {
+        PrivacyLogger.warn('Unauthorized personal data access attempt blocked', {
+          actorId: authenticatedUserId,
+          targetId: targetUserId,
+          endpoint: req.originalUrl,
+        });
+
+        // 403 Forbidden без тіла PII для чужого суб'єкта
+        return res.status(403).json({
+          errors: {
+            message: 'Forbidden: You are not authorized to access this personal data dossier',
+          },
+        });
+      }
+
+      // 2. АГРЕГАЦІЯ ТА ФОРМУВАННЯ ЕКСПОРТУ
+      const exportDossier = await PersonalDataService.exportUserData(targetUserId);
+
+      if (!exportDossier) {
+        return res.status(404).json({
+          errors: { message: 'Subject profile not found' },
+        });
+      }
+
+      // 3. БЕЗПЕЧНИЙ АУДИТ-ЛОГ (Без дублювання PII та повного тіла JSON)
+      PrivacyLogger.info('Personal data export completed successfully', {
+        subjectId: targetUserId,
+        categories: ['profile', 'activity', 'social', 'consents'],
+      });
+
+      return res.status(200).json(exportDossier);
+    } catch (error) {
+      PrivacyLogger.error('Failure generating personal data export', error);
+      return next(error);
+    }
+  }
+);
 
 export default router;
