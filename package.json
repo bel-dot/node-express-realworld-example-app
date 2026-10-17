@@ -7,7 +7,8 @@
     "build": "nx build",
     "test": "nx test",
     "lint": "eslint src/ --ext .ts",
-    "lint:complexity": "eslint src/ --ext .ts --rule \"sonarjs/cognitive-complexity: ['error', 15]\" --rule \"complexity: ['warn', 10]\""
+    "lint:complexity": "eslint src/ --ext .ts --rule \"sonarjs/cognitive-complexity: ['error', 15]\" --rule \"complexity: ['warn', 10]\"",
+    "metrics:reliability": "python3 -m lizard src/app/routes/article/article.service.ts -C 15"
   },
   "private": true,
   "prisma": {

@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres-db:
+    image: postgres:15-alpine
+    cpuset: "0,1"
+    cpus: 1.0
+    mem_limit: 1024m
+    mem_reservation: 512m
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: conduit
+    ports:
+      - "5432:5432"
+
+  conduit-api:
+    build: .
+    cpuset: "2,3"
+    cpus: 2.0
+    mem_limit: 1024m
+    mem_reservation: 512m
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: "postgresql://postgres:postgres@postgres-db:5432/conduit?connection_limit=20"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres-db
+
+  k6-load-generator:
+    image: grafana/k6:0.50.0
+    cpuset: "4,5"
+    cpus: 2.0
+    mem_limit: 512m
+    command: run -e SCENARIO=normal /scripts/load-test.js
+    volumes:
+      - ./load-test.js:/scripts/load-test.js:ro
+    depends_on:
+      - conduit-api

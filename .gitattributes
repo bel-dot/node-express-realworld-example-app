@@ -1,0 +1,7 @@
+# Enforcing Unix LF line endings to guarantee static analysis reliability
+* text=auto eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.md text eol=lf

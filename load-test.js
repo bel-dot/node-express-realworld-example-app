@@ -70,16 +70,20 @@ export default function () {
 
   // Валідація контракту відповіді
   check(response, {
-    'status is 200': (r) => r.status === 200,
-    'has articles array': (r) => {
-      try {
-        const body = JSON.parse(r.body);
-        return Array.isArray(body.articles);
-      } catch (e) {
-        return false;
+  'status is 200': (r) => r.status === 200,
+  'payload has non-empty valid articles': (r) => {
+    try {
+      const body = JSON.parse(r.body);
+      if (!Array.isArray(body.articles) || body.articles.length === 0) {
+        return false; // Блокує хак із поверненням порожнього масиву []
       }
-    },
-  });
+      const first = body.articles[0];
+      return Boolean(first.slug && first.title && first.author && first.author.username);
+    } catch (e) {
+      return false;
+    }
+  },
+});
 
   // Затримка між запитами (think time)
   if (scenarioType != 'stress') {
