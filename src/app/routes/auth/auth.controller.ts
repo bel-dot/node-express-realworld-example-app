@@ -4,6 +4,8 @@ import { createUser, getCurrentUser, login, updateUser } from './auth.service';
 import { PrivacyLogger } from '../../utils/privacy-logger';
 import { PersonalDataService } from './personal-data.service';
 import { AnonymizationService } from './anonymization.service';
+import { ConsentPurpose, ConsentService } from './consent.service';
+import { requireConsent } from './consent-gate.middleware';
 
 const router = Router();
 
@@ -92,7 +94,7 @@ router.get(
   auth.required,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const targetUserId = parseInt(req.params.id, 10);
+      const targetUserId = Number.parseInt(req.params.id, 10);
       const authenticatedUserId = (req as Request).auth?.user?.id;
 
       // 1. КОНТРОЛЬ ДОСТУПУ (Захист від IDOR):
@@ -171,6 +173,58 @@ router.post(
       PrivacyLogger.error('Failure during anonymization workflow', error);
       return next(error);
     }
+  }
+);
+
+// 1. Отримання поточних згод суб'єкта
+router.get('/users/:id/consents', auth.required, (req: Request, res: Response) => {
+  const targetUserId = Number.parseInt(req.params.id, 10);
+  const authenticatedUserId = (req as Request).auth?.user?.id;
+
+  if (authenticatedUserId !== targetUserId) {
+    return res.status(403).json({ errors: { message: 'Forbidden' } });
+  }
+
+  const consents = ConsentService.getUserConsents(targetUserId);
+  return res.json({ consents });
+});
+
+// 2. GRANT / REVOKE згоди
+router.post('/users/:id/consents', auth.required, (req: Request, res: Response) => {
+  const targetUserId = Number.parseInt(req.params.id, 10);
+  const authenticatedUserId = (req as Request).auth?.user?.id;
+
+  if (authenticatedUserId !== targetUserId) {
+    return res.status(403).json({ errors: { message: 'Forbidden' } });
+  }
+
+  const { purpose, action, policyVersion, source } = req.body.consent;
+
+  if (action === 'REVOKE') {
+    const updated = ConsentService.revokeConsent(targetUserId, purpose as ConsentPurpose);
+    PrivacyLogger.info('Subject revoked consent', { userId: targetUserId, purpose });
+    return res.json({ consent: updated });
+  }
+
+  const granted = ConsentService.grantConsent(
+    targetUserId,
+    purpose as ConsentPurpose,
+    policyVersion || 'v1.0.0',
+    source || 'user_settings'
+  );
+  PrivacyLogger.info('Subject granted consent', { userId: targetUserId, purpose });
+  return res.json({ consent: granted });
+});
+
+// 3. Залежна бізнес-дія під охороною Policy Gate
+router.post(
+  '/users/:id/send-marketing-digest',
+  auth.required,
+  requireConsent('MARKETING_EMAIL'),
+  (req: Request, res: Response) => {
+    return res.status(200).json({
+      message: 'Marketing digest triggered successfully. Side effect executed.',
+    });
   }
 );
 

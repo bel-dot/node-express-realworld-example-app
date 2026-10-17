@@ -34,7 +34,10 @@ export class PrivacyLogger {
   }
 
   public static sanitizeString(text: string): string {
-    let sanitized = text;
+    if (typeof text !== 'string') {
+      return typeof text === 'undefined' ? '' : String(text);
+    }
+    let sanitized: string = text;
 
     const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b/g;
     sanitized = sanitized.replace(emailRegex, (match) => this.maskEmail(match));
