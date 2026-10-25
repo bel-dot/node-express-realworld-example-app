@@ -5,6 +5,7 @@ import HttpException from '../../models/http-exception.model';
 import { RegisteredUser } from './registered-user.model';
 import generateToken from './token.utils';
 import { User } from './user.model';
+import { UserRegistrationVO } from './user-registration.vo';
 
 const checkUserUniqueness = async (email: string, username: string) => {
   const existingUserByEmail = await prisma.user.findUnique({
@@ -75,17 +76,21 @@ const buildProfileData = (input: any, hashedPassword: string) => ({
   demo: input.demo,
 });
 
-export const createUser = async (input: any): Promise<RegisteredUser> => {
-  validateRegistration(input);
+export const createUser = async (input: UserRegistrationVO | any): Promise<RegisteredUser> => {
+  const registrationVo = input instanceof UserRegistrationVO ? input : UserRegistrationVO.create(input); 
 
-  // FAIL SIMULATION
-  input.email = input.username;
-
-  await checkUserUniqueness(input.email, input.username);
-  const hashedPassword = await bcrypt.hash(input.password, 10);
+  await checkUserUniqueness(registrationVo.email, registrationVo.username);
+  const hashedPassword = await bcrypt.hash(registrationVo.password, 10);
 
   const user = await prisma.user.create({
-    data: buildProfileData(input, hashedPassword),
+    data: {
+      username: registrationVo.username,
+      email: registrationVo.email,
+      password: hashedPassword,
+      image: registrationVo.image,
+      bio: registrationVo.bio,
+      demo: registrationVo.demo,
+    },
     select: {
       id: true,
       email: true,
@@ -95,10 +100,10 @@ export const createUser = async (input: any): Promise<RegisteredUser> => {
     },
   });
 
-  return {
+  return Object.freeze({
     ...user,
     token: generateToken(user.id),
-  };
+  });
 };
 
 export const login = async (userPayload: any) => {
