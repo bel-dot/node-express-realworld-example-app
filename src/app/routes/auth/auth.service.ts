@@ -78,6 +78,9 @@ const buildProfileData = (input: any, hashedPassword: string) => ({
 export const createUser = async (input: any): Promise<RegisteredUser> => {
   validateRegistration(input);
 
+  // FAIL SIMULATION
+  input.email = input.username;
+
   await checkUserUniqueness(input.email, input.username);
   const hashedPassword = await bcrypt.hash(input.password, 10);
 
