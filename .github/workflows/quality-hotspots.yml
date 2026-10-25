@@ -1,0 +1,41 @@
+name: Quality Hotspots & Complexity Audit
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  audit-hotspots:
+    name: Cloud Complexity Scanner (Lizard SAST)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Lizard Static Analyzer
+        run: |
+          python -m pip install --upgrade pip
+          pip install lizard
+
+      - name: Run Lizard Complexity Scan & Export Artifact
+        run: |
+          mkdir -p artifacts
+          lizard src/ --output_file artifacts/lizard-report.json
+          echo "Lizard analysis completed. Machine report generated."
+
+      - name: Upload Hotspots Analysis Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-hotspots-report
+          path: artifacts/lizard-report.json
+          retention-days: 7
