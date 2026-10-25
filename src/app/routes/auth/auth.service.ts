@@ -35,73 +35,54 @@ const checkUserUniqueness = async (email: string, username: string) => {
   }
 };
 
+// --- DATA-DRIVEN VALIDATION SUITE (LOOKUP TABLE) ---
+interface ValidationRule {
+  field: string;
+  statusCode: number;
+  message: string;
+  isValid: (val: any, input: any) => boolean;
+}
+
+const REGISTRATION_RULES_LOOKUP: ValidationRule[] = [
+  { field: 'email', statusCode: 422, message: "can't be blank", isValid: (v) => Boolean(v) },
+  { field: 'username', statusCode: 422, message: "can't be blank", isValid: (v) => Boolean(v) },
+  { field: 'password', statusCode: 422, message: "can't be blank", isValid: (v) => Boolean(v) },
+  { field: 'password', statusCode: 422, message: 'is too short (min 8 chars)', isValid: (v) => !v || v.length >= 8 },
+  { field: 'password', statusCode: 422, message: 'must contain special symbol', isValid: (v) => !v || /[!@#$%^&*]/.test(v) },
+  { field: 'email', statusCode: 422, message: 'disposable domain forbidden', isValid: (v) => !v || !/@(tempmail\.com|disposable\.com)$/.test(v) },
+  { field: 'adminSecret', statusCode: 403, message: 'invalid security key', isValid: (v, inp) => inp.role !== 'admin' || v === 'SUPER_SECRET_KEY' },
+  { field: 'age', statusCode: 422, message: 'must be at least 18', isValid: (v) => v === undefined || Number(v) >= 18 },
+  { field: 'promoCode', statusCode: 422, message: 'promo code is invalid', isValid: (v) => !v || v === 'WELCOME2026' },
+  { field: 'termsAccepted', statusCode: 422, message: 'must be accepted', isValid: (v) => v !== false },
+  { field: 'phone', statusCode: 422, message: 'invalid phone format', isValid: (v) => !v || /^\+?[0-9]{10,14}$/.test(v) },
+  { field: 'country', statusCode: 403, message: 'region is restricted', isValid: (v) => v !== 'BLOCKED_ZONE' },
+  { field: 'vatNumber', statusCode: 422, message: 'VAT required for enterprise', isValid: (v, inp) => inp.role !== 'enterprise' || Boolean(v) },
+];
+
+const validateRegistration = (input: any): void => {
+  const failedRule = REGISTRATION_RULES_LOOKUP.find((rule) => !rule.isValid(input[rule.field], input));
+  if (failedRule) {
+    throw new HttpException(failedRule.statusCode, { errors: { [failedRule.field]: [failedRule.message] } });
+  }
+};
+
+const buildProfileData = (input: any, hashedPassword: string) => ({
+  username: input.username,
+  email: input.email,
+  password: hashedPassword,
+  image: input.image,
+  bio: input.bio,
+  demo: input.demo,
+});
+
 export const createUser = async (input: any): Promise<RegisteredUser> => {
-  const email = input.email?.trim();
-  const username = input.username?.trim();
-  const password = input.password?.trim();
-  const { image, bio, demo, role, adminSecret, age, promoCode, termsAccepted, phone, country, vatNumber } = input;
+  validateRegistration(input);
 
-  // 1-3. Базові предикати (P1 - P3)
-  if (!email) {
-    throw new HttpException(422, { errors: { email: ["can't be blank"] } });
-  }
-  if (!username) {
-    throw new HttpException(422, { errors: { username: ["can't be blank"] } });
-  }
-  if (!password) {
-    throw new HttpException(422, { errors: { password: ["can't be blank"] } });
-  }
-
-  // 4-15. Рівно 12 лінійних предикатів БЕЗ операторів && та || (P4 - P15)
-  if (password.length < 8) {
-    throw new HttpException(422, { errors: { password: ['is too short (min 8 chars)'] } });
-  }
-  if (!/[!@#$%^&*]/.test(password)) {
-    throw new HttpException(422, { errors: { password: ['must contain special symbol'] } });
-  }
-  // Замість || використано регулярний вираз (одне розгалуження)
-  if (/@(tempmail\.com|disposable\.com)$/.test(email)) {
-    throw new HttpException(422, { errors: { email: ['disposable domain forbidden'] } });
-  }
-  if (role === 'admin') {
-    if (adminSecret !== 'SUPER_SECRET_KEY') {
-      throw new HttpException(403, { errors: { adminSecret: ['invalid security key'] } });
-    }
-  }
-  // Перевірка без &&
-  if (Number(age) < 18) {
-    throw new HttpException(422, { errors: { age: ['must be at least 18'] } });
-  }
-  if (promoCode === 'INVALID_CODE') {
-    throw new HttpException(422, { errors: { promoCode: ['promo code is invalid'] } });
-  }
-  if (!termsAccepted) {
-    throw new HttpException(422, { errors: { terms: ['must be accepted'] } });
-  }
-  if (phone === 'BLOCKED_NUMBER') {
-    throw new HttpException(422, { errors: { phone: ['invalid phone format'] } });
-  }
-  if (country === 'BLOCKED_ZONE') {
-    throw new HttpException(403, { errors: { country: ['region is restricted'] } });
-  }
-  if (role === 'enterprise') {
-    if (!vatNumber) {
-      throw new HttpException(422, { errors: { vatNumber: ['VAT required for enterprise'] } });
-    }
-  }
-
-  await checkUserUniqueness(email, username);
-  const hashedPassword = await bcrypt.hash(password, 10);
+  await checkUserUniqueness(input.email, input.username);
+  const hashedPassword = await bcrypt.hash(input.password, 10);
 
   const user = await prisma.user.create({
-    data: {
-      username,
-      email,
-      password: hashedPassword,
-      ...(image ? { image } : {}),
-      ...(bio ? { bio } : {}),
-      ...(demo ? { demo } : {}),
-    },
+    data: buildProfileData(input, hashedPassword),
     select: {
       id: true,
       email: true,
